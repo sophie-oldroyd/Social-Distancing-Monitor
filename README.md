@@ -1,4 +1,52 @@
-# Baseline firmware for the [Warp](https://github.com/physical-computation/Warp-hardware) family of hardware platforms
+# Social Distancing Monitor
+Sophie Oldroyd, Corpus Chrisit, svo22
+
+## Summary
+This respository contains the firmware for a social distancing montior. The aim of the project was to develop a method of helping a person monitor whether they are adhering to the social distancing guidline of 2m. In addition to the firmware, the project uses the following hardware: FRDMKL03 Development Board, Ultrasonic Distance Sensor, LED, Buzzer, Resistor, Capacitor, Temperature Sensor and Switch. The `FRDMKL03 Devleopment Board` contains the hardware and software to host the project. The `Ultrasonic Distance Sensor`sends out an ultrasound pulse and records the time taken for the reflected pulse to return. The distance can be determine from the Time of Flight. The output of the sensor is a pulse that's width is equal to the time taken for the pulse travel to the person, be reflected, and return to the sensor. The `LED` and `Buzzer` are used as alert mechanisms for when social distancing is breached. The mechanical `switch` is used to turn the output from the buzzer on and off, because it can be very invasive. 
+
+## Repository Layout
+The firmware for the project is an editted version of the `Warp-firmware` from the `Physical Computation Laboratory` at the `University of Cambridge` run by `Phillip Stanley-Marbell`. 
+#### `Source files`
+##### `CMakeLists.txt`
+This is the CMake configuration file. Edit this to change the default size of the stack and heap.
+
+##### `SEGGER_RTT.*`
+This is the implementation of the SEGGER Real-Time Terminal interface. Do not modify.
+
+##### `SEGGER_RTT_Conf.h`
+Configuration file for SEGGER Real-Time Terminal interface. You can increase the size of `BUFFER_SIZE_UP` to reduce text in the menu being trimmed.
+
+##### `SEGGER_RTT_printf.c`
+Implementation of the SEGGER Real-Time Terminal interface formatted I/O routines. Do not modify.
+
+##### `devHIH.*`
+Driver for HIH6121-021-001 temperature sensor. Communication is completed via the I2C Interface.  
+
+##### `devSSD1331.*`
+Basic driver for SSD1331 OLED display. 
+
+##### `mbedSSD1331.*`
+Driver for the SSD1331 OLED display that allows characters to be created. Based on the driver found at `https://os.mbed.com/users/star297/code/ssd1331/file/4385fd242db0/ssd1331.cpp/` written by `Paul Staron`. Unneccessary functions were removed. 
+
+##### `gpio_pins.c`
+Definition of I/O pin configurations using the KSDK `gpio_output_pin_user_config_t` structure.
+
+##### `gpio_pins.h`
+Definition of I/O pin mappings and aliases for different I/O pins to symbolic names relevant to the Warp hardware design, via `GPIO_MAKE_PIN()`.
+
+##### `startup_MKL03Z4.S`
+Initialization assembler.
+
+##### `warp-kl03-ksdk1.1-boot.c`
+Contains initalisation that starts the device and initialises the sensors.
+Contains function `runDevice()` that calls upon different sensors to obtain and display the results. Contains algorithm to determine if social distancing has been breached and raises an alert if it has been. 
+Contains function `DistanceSensor()` that is the functionalisation for the Ultrasonic distance sensor, which is not included as a seperate driver because the sensor is analogue. 
+Contains function `findSQRT()` that is used in the data processing algorithm as the speed of sound is proportional to the square root of the temperature. 
+
+
+## Running the Project
+
+
 This is the firmware for the [Warp hardware](https://github.com/physical-computation/Warp-hardware) and its publicly available and unpublished derivatives. This firmware also runs on the Freescale/NXP FRDM KL03 evaluation board which we use for teaching at the University of Cambridge. When running on platforms other than Warp, only the sensors available in the corresponding hardware platform are accessible.
 
 **Prerequisites:** You need an arm cross-compiler such as `arm-none-eabi-gcc` installed as well as a working `cmake` (installed, e.g., via `apt-get` on Linux or via [MacPorts](https://www.macports.org) on macOS). You will also need an installed copy of the SEGGER [JLink commander](https://www.segger.com/downloads/jlink/), `JlinkExe`, which is available for Linux, macOS, and Windows (here are direct links for downloading it for [macOS](https://www.segger.com/downloads/jlink/JLink_MacOSX.pkg), and [Linux tgz 64-bit](https://www.segger.com/downloads/jlink/JLink_Linux_x86_64.tgz)).
@@ -137,95 +185,6 @@ Select:
 - 'z': dump all sensors data.
 Enter selection>
 ````
-### Double echo characters
-By default on Unix, you will likely see characters you enter shown twice. To avoid this, do the following:
-- Make sure you are running `bash` (and not `csh`)
-- Execute `stty -echo` at the command line in the terminal window in which you will run the `JLinkRTTClient`.
 
-### Introduction to using the menu
-You can probe around the menu to figure out what to do. In brief, you will likely want:
-
-1. Menu item `b` to set the I2C baud rate.
-
-2. Menu item `r` to switch the processor from low-power mode (2MHz) to "run" mode (48MHz).
-
-3. Menu item `g` to set sensor supply voltage.
-
-4. Menu item `n` to turn on the voltage regulators.
-
-5. Menu item `z` to repeatedly read from all the sensors whose drivers are compiled into the build.
-
-*NOTE: In many cases, the menu expects you to type a fixed number of characters (e.g., 0000 or 0009 for zero and nine)<sup>&nbsp;<a href="#Notes">See note 1 below</a></sup>. If using the `JLinkRTTClient`, the menu interface eats your characters as you type them, and you should not hit RETURN after typing in text. On the other hand, if using `telnet` you have to hit return.*
-
-### Example 1: Dump all registers for a single sensor
--	`b` (set the I2C baud rate to `0300` for 300 kb/s).
--	`g` (set sensor supply voltage to `3000` for 3000mV sensor supply voltage).
--	`n` (turn on the sensor supply regulators).
--	`j` (submenu for initiating a fixed number of repeated reads from a sensor):
-````
-Enter selection> j
-
-    Auto-increment from base address 0x01? ['0' | '1']> 0
-    Chunk reads per address (e.g., '1')> 1
-    Chatty? ['0' | '1']> 1
-    Inter-operation spin delay in milliseconds (e.g., '0000')> 0000
-    Repetitions per address (e.g., '0000')> 0000
-    Maximum voltage for adaptive supply (e.g., '0000')> 2500
-    Reference byte for comparisons (e.g., '3e')> 00
-````
-
-### Example 2: Stream data from all sensors
-This will perpetually stream data from the 90+ sensor dimensions at a rate of about 90-tuples per second. Use the following command sequence:
--	`b` (set the I2C baud rate to `0300` for 300 kb/s).
--	`r` (enable 48MHz "run" mode for the processor).
--	`g` (set sensor supply voltage to `3000` for 3000mV sensor supply voltage).
--	`n` (turn on the sensor supply regulators).
--	`z` (start to stream data from all sensors that can run at the chosen voltage and baud rate).
-
-## 5.  To update your fork
-From your local clone:
-
-	git remote add upstream https://github.com/physical-computation/Warp-firmware.git
-	git fetch upstream
-	git pull upstream master
-
-----
-
-### If you use Warp in your research, please cite it as:
-Phillip Stanley-Marbell and Martin Rinard. “A Hardware Platform for Efficient Multi-Modal Sensing with Adaptive Approximation”. ArXiv e-prints (2018). arXiv:1804.09241.
-
-**BibTeX:**
-```
-@ARTICLE{1804.09241,
-	author = {Stanley-Marbell, Phillip and Rinard, Martin},
-	title = {A Hardware Platform for Efficient Multi-Modal 
-	Sensing with Adaptive Approximation},
-	journal = {ArXiv e-prints},
-	archivePrefix = {arXiv},
-	eprint = {1804.09241},
-	year = 2018,
-}
-```
-Phillip Stanley-Marbell and Martin Rinard. “Warp: A Hardware Platform for Efficient Multi-Modal Sensing with Adaptive Approximation”. IEEE Micro, Volume 40 , Issue 1 , Jan.-Feb. 2020.
-
-**BibTeX:**
-```
-@ARTICLE{8959350,
-	author = {P. {Stanley-Marbell} and M. {Rinard}},
-	title = {Warp: A Hardware Platform for Efficient Multi-Modal
-	Sensing with Adaptive Approximation},
-	journal = {IEEE Micro},
-	year = {2020},
-	volume = {40},
-	number = {1},
-	pages = {57-66},
-	ISSN = {1937-4143},
-	month = {Jan},
-}
-```
 ### Acknowledgements
 This research is supported by an Alan Turing Institute award TU/B/000096 under EPSRC grant EP/N510129/1, by Royal Society grant RG170136, and by EPSRC grants EP/P001246/1 and EP/R022534/1.
-
-----
-### Notes
-<sup>1</sup>&nbsp; On some Unix platforms, the `JLinkRTTClient` has a double echo of characters you type in. You can prevent this by configuring your terminal program to not echo the characters you type. To achieve this on `bash`, use `stty -echo` from the terminal. Alternatively, rather than using the `JLinkRTTClient`, you can use a `telnet` program: `telnet localhost 19021`. This avoids the JLink RTT Client's "double echo" behavior but you will then need a carriage return (&crarr;) for your input to be sent to the board. Also see [Python SEGGER RTT library from Square, Inc.](https://github.com/square/pylink/blob/master/examples/rtt.py) (thanks to [Thomas Garry](https://github.com/tidge27) for the pointer).
