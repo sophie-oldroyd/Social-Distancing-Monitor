@@ -3,14 +3,18 @@
 #include "fsl_spi_master_driver.h"
 #include "fsl_port_hal.h"
 
+#include "mbedSSD1331.h"
+
 #include "SEGGER_RTT.h"
 #include "gpio_pins.h"
 #include "warp.h"
 #include "devSSD1331.h"
 
-volatile uint8_t	inBuffer[1];
-volatile uint8_t	payloadBytes[1];
+volatile uint8_t	inBuffer[32];
+volatile uint8_t	payloadBytes[32];
 
+
+uint8_t first_char_flag;
 
 /*
  *	Override Warp firmware's use of these pins and define new aliases.
@@ -24,8 +28,8 @@ enum
 	kSSD1331PinRST		= GPIO_MAKE_PIN(HW_GPIOB, 0),
 };
 
-static int
-writeCommand(uint8_t commandByte)
+
+int writeCommand(uint8_t commandByte)
 {
 	spi_status_t status;
 
@@ -35,7 +39,7 @@ writeCommand(uint8_t commandByte)
 	 *	Make sure there is a high-to-low transition by first driving high, delay, then drive low.
 	 */
 	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
-	OSA_TimeDelay(10);
+	//OSA_TimeDelay(10);
 	GPIO_DRV_ClearPinOutput(kSSD1331PinCSn);
 
 	/*
@@ -60,10 +64,86 @@ writeCommand(uint8_t commandByte)
 }
 
 
-
-int
-devSSD1331init(void)
+int writeCommand_buf(uint8_t* commandByteBuf, uint8_t len)
 {
+	spi_status_t status;
+
+	/*
+	 *	Drive /CS low.
+	 *
+	 *	Make sure there is a high-to-low transition by first driving high, delay, then drive low.
+	 */
+	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
+	GPIO_DRV_ClearPinOutput(kSSD1331PinCSn);
+
+	/*
+	 *	Drive DC low (command).
+	 */
+	GPIO_DRV_ClearPinOutput(kSSD1331PinDC);
+
+	status = SPI_DRV_MasterTransferBlocking(0	                                        /* master instance */,
+					                        NULL		                                /* spi_master_user_config_t */,
+					                        (const uint8_t * restrict)commandByteBuf,
+					                        (uint8_t * restrict)&inBuffer[0],
+					                        len		                                    /* transfer size */,
+					                        1000		                                /* timeout in microseconds (unlike I2C which is ms) */
+					                        );
+	/*
+	 *	Drive /CS high
+	 */
+	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
+
+	return status;
+}
+
+
+
+void 
+printtoscreen(char* word, uint8_t len, uint8_t number)
+{
+     
+	writeCommand(kSSD1331CommandCLEAR);
+	writeCommand(0x00);
+	writeCommand(0x00);
+	writeCommand(0x5F);
+	writeCommand(0x3F);
+	reset_cursor();
+
+    uint8_t i;
+    uint8_t x = 0;
+    uint8_t y = 10;
+
+    int distance[3];
+    distance[0] = number/100 + 48;
+    distance[1] = (number%100)/10 + 48;
+    distance[2] = (number%100)%10 + 48;
+
+    
+    for( i=0; i<4; i++) {
+       PutChar(x, y, distance[i]);
+        x += X_width;
+    } 
+    
+    x = 0;
+    y = 60;
+    i = 0;
+    
+          for( i=0; i<len; i++) {
+         PutChar(x, y, (int)*(word+i));
+         x += X_width;
+     }
+
+  
+
+}
+
+
+
+
+
+int devSSD1331init(void)
+{
+  
 	/*
 	 *	Override Warp firmware's use of these pins.
 	 *
@@ -128,18 +208,20 @@ devSSD1331init(void)
 	writeCommand(kSSD1331CommandMASTERCURRENT);	// 0x87
 	writeCommand(0x06);
 	writeCommand(kSSD1331CommandCONTRASTA);		// 0x81
-	writeCommand(0x91);
+    writeCommand(0x91);
 	writeCommand(kSSD1331CommandCONTRASTB);		// 0x82
 	writeCommand(0x50);
 	writeCommand(kSSD1331CommandCONTRASTC);		// 0x83
 	writeCommand(0x7D);
 	writeCommand(kSSD1331CommandDISPLAYON);		// Turn on oled panel
+//	SEGGER_RTT_WriteString(0, "\r\n\tDone with initialization sequence...\n");
 
 	/*
 	 *	To use fill commands, you will have to issue a command to the display to enable them. See the manual.
 	 */
 	writeCommand(kSSD1331CommandFILL);
 	writeCommand(0x01);
+//	SEGGER_RTT_WriteString(0, "\r\n\tDone with enabling fill...\n");
 
 	/*
 	 *	Clear Screen
@@ -152,12 +234,28 @@ devSSD1331init(void)
 
 
 
-	/*
-	 *	Any post-initialization drawing commands go here.
-	 */
-	//...
-
-
-
+    //set to maximum current
+    writeCommand(kSSD1331CommandMASTERCURRENT);	// 0x87
+	writeCommand(14);     
+		/*Adding green square
+	 * */
+	writeCommand(kSSD1331CommandDRAWRECT);
+	writeCommand(0x00);
+	writeCommand(0x00);
+	writeCommand(0x5F);
+	writeCommand(0x3F);
+	writeCommand(0x00);
+	writeCommand(0x3F);
+	writeCommand(0x00);
+	writeCommand(0x00);
+	writeCommand(0x3F);
+	writeCommand(0x00);    
+    
+    
+   SetFontSize(HIGH); // set high font
+    //SetFontSize(WH); // set tall font
+    //foreground(toRGB(0,255,0)); // set text colour
+	foreground(0x07E0); // set text colour
+	
 	return 0;
 }
