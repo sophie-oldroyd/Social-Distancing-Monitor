@@ -94,7 +94,7 @@ Initialization assembler.
 Contains initalisation that starts the device and initialises the sensors.
 Contains function `runDevice()` that calls upon different sensors to obtain and display the results. Contains algorithm to determine if social distancing has been breached and raises an alert if it has been. 
 Contains function `DistanceSensor()` that is the functionalisation for the Ultrasonic distance sensor, which is not included as a seperate driver because the sensor is analogue. 
-Contains function `findSQRT()` that is used in the data processing algorithm as the speed of sound is proportional to the square root of the temperature. 
+Contains function `findSquareRoot()` that is used in the data processing algorithm as the speed of sound is proportional to the square root of the temperature. Algorithm based on that outlined at `https://www.tutorialspoint.com/learn_c_by_examples/square_root_program_in_c.htm`.
 
 ## Running the Project
 Three prerequisites are needed to compile the project firmware. The first is an `arm cross-compiler`, the second is a `cmake` that works, and the third is a copy of the `SEGGER Jlink Commander`. 
