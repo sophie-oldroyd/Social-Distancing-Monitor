@@ -19,7 +19,7 @@ PTB0			 | J2, 6		     | RST (R) 	      | Yellow
 GND			 | J3, 7		     | GND (G)	      | Blue
 5V 			 | J3, 5		     | VCC (+) 	      | White	
 
-The mapping table for the Ultrasonic Senor pins is given below.
+The mapping table for the Ultrasound Senor pins is given below.
 
 FRDM-KL03Z I/0 Port Name | FRDM-KL03Z I/0 Header Pin | Sensor Port Name | Wire Colour
 -------------------------|---------------------------|------------------|-----------
