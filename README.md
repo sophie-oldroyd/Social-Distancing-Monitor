@@ -6,7 +6,7 @@ This respository contains the firmware for a social distancing montior. The aim 
 
 ## Hardware Layout
 The hardware layout for the project can be seen in the image below. 
-![alt text](https://github.com/sophie-oldroyd/Warp-firmware/blob/master/physicallayout.jpg?raw=true)
+![alt text](https://github.com/sophie-oldroyd/Warp-firmware/blob/master/physicallayoutnew.jpg?raw=true)
 
 The mapping table for the OLED pins is given below. 
 
@@ -78,7 +78,7 @@ Driver for HIH6121-021-001 temperature sensor. Communication is completed via th
 ##### `devSSD1331.*`
 Driver for the SSD1331 OLED display that allows characters to be created. 
 Several function included are based on the driver found at `https://os.mbed.com/users/star297/code/ssd1331/file/4385fd242db0/ssd1331.cpp/` written by `Paul Staron`. 
-Contains function `charactertoscreen` prints a character (either letter or number) to the screen. 
+Contains function `charactertoscreen` which prints a character (either letter or number) to the screen. 
 Contains function `clearscreen` to clear the display. 
 
 ##### `gpio_pins.c`
