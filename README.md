@@ -76,10 +76,11 @@ Implementation of the SEGGER Real-Time Terminal interface formatted I/O routines
 Driver for HIH6121-021-001 temperature sensor. Communication is completed via the I2C Interface.  
 
 ##### `devSSD1331.*`
-Basic driver for SSD1331 OLED display. 
-
-##### `mbedSSD1331.*`
-Driver for the SSD1331 OLED display that allows characters to be created. Based on the driver found at `https://os.mbed.com/users/star297/code/ssd1331/file/4385fd242db0/ssd1331.cpp/` written by `Paul Staron`. Unneccessary functions were removed. 
+Driver for the SSD1331 OLED display that allows characters to be created. 
+Several function included are based on the driver found at `https://os.mbed.com/users/star297/code/ssd1331/file/4385fd242db0/ssd1331.cpp/` written by `Paul Staron`. 
+Contains function `welcomemessage` to  display a welcome message on the OLED board when powered up.
+Contains function `printtoscreen` to display the distance, and temperature results from the device.
+Contains function `clearscreen` to clear the display. 
 
 ##### `gpio_pins.c`
 Definition of I/O pin configurations using the KSDK `gpio_output_pin_user_config_t` structure.
