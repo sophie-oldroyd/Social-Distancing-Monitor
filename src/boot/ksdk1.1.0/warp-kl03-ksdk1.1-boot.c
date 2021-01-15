@@ -64,7 +64,6 @@
 #ifndef WARP_FRDMKL03
 #	include "devMMA8451Q.h"
 #else
-#	include "devMMA8451Q.h"
 # 	include "devSSD1331.h"
 #	include "devHIH.h"
 #endif
@@ -85,9 +84,6 @@
 #define						kWarpConstantStringErrorSanity		"\rSanity check failed!"
 
 
-#ifdef WARP_BUILD_ENABLE_DEVMMA8451Q
-volatile WarpI2CDeviceState			deviceMMA8451QState;
-#endif
 
 #ifdef WARP_BUILD_ENABLE_DEVHIH						
 volatile WarpI2CDeviceState 			deviceHIHState;
@@ -122,17 +118,11 @@ void					disableTPS82740B(void);
 void					enableTPS82740A(uint16_t voltageMillivolts);
 void					enableTPS82740B(uint16_t voltageMillivolts);
 void					setTPS82740CommonControlLines(uint16_t voltageMillivolts);
-void					dumpProcessorState(void);
-void					repeatRegisterReadForDeviceAndAddress(WarpSensorDevice warpSensorDevice, uint8_t baseAddress, 
-								uint8_t pullupValue, bool autoIncrement, int chunkReadsPerAddress, bool chatty,
-								int spinDelay, int repetitionsPerAddress, uint16_t sssupplyMillivolts,
-								uint16_t adaptiveSssupplyMaxMillivolts, uint8_t referenceByte);
 int					char2int(int character);
 void					enableSssupply(uint16_t voltageMillivolts);
 void					disableSssupply(void);
 uint8_t					readHexByte(void);
 int					read4digits(void);
-void					printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelayBetweenEachRun, int i2cPullupValue);
 int					readFromTempSensorIn(uint8_t deviceRegister, int numberOfBytes);
 
 /*
@@ -917,9 +907,6 @@ main(void)
 	 *	Initialize all the sensors
 	 */
 
-#ifdef WARP_BUILD_ENABLE_DEVMMA8451Q
-	initMMA8451Q(	0x1D	/* i2cAddress */,	&deviceMMA8451QState	);
-#endif
 
 	#ifdef WARP_BUILD_ENABLE_DEVHIH
           initHIH(   0x27    /* i2cAddress */,       &deviceHIHState    );
@@ -938,15 +925,23 @@ main(void)
 
 
 	/*
-	 *	TODO: initialize the kWarpPinKL03_VDD_ADC, write routines to read the VDD and temperature
+	 *	Initialise the OLED screen and print hello 
 	 */
-
-
 	devSSD1331init();
 	char* word = "hello";
-	uint8_t len = 5;
-	uint8_t number = 2;
-	printtoscreen(word,len,number);
+	reset_cursor(); /*Reset cursor and clear the screen */
+    clearscreen();
+	uint8_t x = 0;
+	uint8_t i;
+	/*
+	 *For each of the characters in the word hello, convert to an integer and print to the screen
+	 */
+	for( i=0; i<5; i++) {
+			char currentcharacter = *(word+i); /* Pointer for each character in the word */
+			 x = charactertoscreen((int)currentcharacter,x);
+		}
+
+
 	while (1)
 	{
 		/*
@@ -964,38 +959,9 @@ main(void)
 		SEGGER_RTT_WriteString(0, "\r[  \t\t\t\t      Cambridge / Physcomplab   \t\t\t\t  ]\n\n");
 		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
 
-#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-		SEGGER_RTT_printf(0, "\r\tSupply=%dmV,\tDefault Target Read Register=0x%02x\n",
-								menuSupplyVoltage, menuRegisterAddress);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_printf(0, "\r\tI2C=%dkb/s,\tSPI=%dkb/s,\tUART=%dkb/s,\tI2C Pull-Up=%d\n\n",
-								gWarpI2cBaudRateKbps, gWarpSpiBaudRateKbps, gWarpUartBaudRateKbps, menuI2cPullupValue);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_printf(0, "\r\tSIM->SCGC6=0x%02x\t\tRTC->SR=0x%02x\t\tRTC->TSR=0x%02x\n", SIM->SCGC6, RTC->SR, RTC->TSR);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_printf(0, "\r\tMCG_C1=0x%02x\t\t\tMCG_C2=0x%02x\t\tMCG_S=0x%02x\n", MCG_C1, MCG_C2, MCG_S);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_printf(0, "\r\tMCG_SC=0x%02x\t\t\tMCG_MC=0x%02x\t\tOSC_CR=0x%02x\n", MCG_SC, MCG_MC, OSC_CR);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_printf(0, "\r\tSMC_PMPROT=0x%02x\t\t\tSMC_PMCTRL=0x%02x\t\tSCB->SCR=0x%02x\n", SMC_PMPROT, SMC_PMCTRL, SCB->SCR);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_printf(0, "\r\tPMC_REGSC=0x%02x\t\t\tSIM_SCGC4=0x%02x\tRTC->TPR=0x%02x\n\n", PMC_REGSC, SIM_SCGC4, RTC->TPR);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-
-		SEGGER_RTT_printf(0, "\r\t%ds in RTC Handler to-date,\t%d Pmgr Errors\n", gWarpSleeptimeSeconds, powerManagerCallbackStructure.errorCount);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-#else
-		SEGGER_RTT_WriteString(0, "\r\n\n\t\tWARNING: SEGGER_RTT_printf disabled in this firmware build.\n\t\tOnly showing output that does not require value formatting.\n\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-#endif
-
 		SEGGER_RTT_WriteString(0, "\rSelect:\n");
 		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- '/': get data from distance sensor\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-
-
-		SEGGER_RTT_WriteString(0, "\r- 'z': dump all sensors data.\n");
+		SEGGER_RTT_WriteString(0, "\r- '/': Start Social Distancing Sensor\n");
 		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
 
 		SEGGER_RTT_WriteString(0, "\rEnter selection> ");
@@ -1005,37 +971,14 @@ main(void)
 		switch (key)
 		{	
 			/*
-			 *	Dump all the sensor data in one go
+			 *	Start the social distancing device running by pressing the / key.
 			 */
-			case 'z':
-			{
-				bool		hexModeFlag;
-
-				SEGGER_RTT_WriteString(0, "\r\n\tEnabling I2C pins...\n");
-				enableI2Cpins(menuI2cPullupValue);
-
-				SEGGER_RTT_WriteString(0, "\r\n\tHex or converted mode? ('h' or 'c')> ");
-				key = SEGGER_RTT_WaitKey();
-				hexModeFlag = (key == 'h' ? 1 : 0);
-
-				SEGGER_RTT_WriteString(0, "\r\n\tSet the time delay between each run in milliseconds (e.g., '1234')> ");
-				uint16_t	menuDelayBetweenEachRun = read4digits();
-				SEGGER_RTT_printf(0, "\r\n\tDelay between read batches set to %d milliseconds.\n\n", menuDelayBetweenEachRun);
-				OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-
-				printAllSensors(true /* printHeadersAndCalibration */, hexModeFlag, menuDelayBetweenEachRun, menuI2cPullupValue);
-
-				/*
-				 *	Not reached (printAllSensors() does not return)
-				 */
-				disableI2Cpins();
-				break;
-			}
-			
 
 			case '/':
 			{
+				while(1){
 				runDevice();
+				}
 			
 		
 			break;
@@ -1064,106 +1007,172 @@ main(void)
 }
 
 
+/*
+ *	Function for running the device, called by pressing / in the Warp menu.
+ * Calls the distance sensor function, accesses the drivers for the OLED and the 
+ * temperature sensor. 
+ * Determines if the 2m social distancing has been breached. 
+ * Raises an alert if it has been breached (LED and buzzer).
+*/
+
 void
 runDevice(void)
 {
 	enum
      {
-        kWarpPinSwitch      = GPIO_MAKE_PIN(HW_GPIOB, 5),
-        kWarpPinFRDMKL03LED_Green = GPIO_MAKE_PIN(HW_GPIOB, 11),
-	kWarpPinFRDMKL03LED_Red = GPIO_MAKE_PIN(HW_GPIOB, 10),
-        kWarpPinBuzzer    = GPIO_MAKE_PIN(HW_GPIOA, 5),
-	kWarpPinLED       =GPIO_MAKE_PIN(HW_GPIOB, 7)
+        kWarpPinAlert   = GPIO_MAKE_PIN(HW_GPIOA, 5), /* Set the alert pin as an GPIO pin and set as output*/
      };
 
-                        GPIO_DRV_SetPinDir(kWarpPinSwitch, kGpioDigitalInput);
-                         GPIO_DRV_SetPinDir(kWarpPinFRDMKL03LED_Red, kGpioDigitalOutput);
+
+        int receivedSensorData;
+        enableI2Cpins(32767); /* Initialise I2C pins and wait for completion */
+        OSA_TimeDelay(1000);
+        writeToTempSensor(0x27);   /* Write to the temp sensor, I2C address 0x27, and wait */
+        OSA_TimeDelay(100);
+        receivedSensorData = readFromTempSensor(0x27,4);  /* Read data from temperature sensor */
+		/* The temperature is only contained in the last 2 bytes of data from the sensor, stored within the buffer
+	 	 * Need to combine the 2 bytes, 8 bits from the first and 6 from the second.  
+		 * Output is 14 bit number, between -40 and 120 degrees, -40 is 0 counts and 120 is 2^14 = 16384 - 2 counts
+		 */
+		receivedSensorData = (deviceHIHState.i2cBuffer[2] << 6) + ((deviceHIHState.i2cBuffer[3] & 0xFC) >> 2);
+		receivedSensorData = (165 * receivedSensorData/ (16384 - 2)) - 40;
+
+		/*
+		 *Print the temperature to the OLED screen
+		 */
+    uint8_t temp = receivedSensorData;
+	char* word = "oC";
+    reset_cursor();
+	clearscreen();
+	uint8_t x = 0;
+	uint8_t i;
+	/* 
+	 * For each of the digits within the temperature (likely to only be 2 digits)
+	 * convert into ascii code and print to the screen
+	 * The print the units to the screen
+	 */
+	int tempindividual[2];
+    tempindividual[0] = temp/10 + 48; /*Numbers start from 48 in ascii code */
+   	tempindividual[1] = temp%10 + 48;
+	for( i=0; i<2; i++) {
+		x = charactertoscreen(tempindividual[i],x);
+    	} 
+	for( i=0; i<2; i++) {
+		char currentcharacter = *(word+i); /* Pointer for each character in the word */
+		x = charactertoscreen((int)currentcharacter,x);
+	}
 
 
-                        int receivedSensorData;
-                        enableI2Cpins(32767);
-                        OSA_TimeDelay(1000);
-                      writeToTempSensor(0x27);
-                //        writeToTempSensorIn(0x27);
-                        OSA_TimeDelay(100);
-                    receivedSensorData = readFromTempSensor(0x27,4);
-                      //  readFromTempSensorIn(0x27,4);
-			receivedSensorData = (deviceHIHState.i2cBuffer[2] << 6) + ((deviceHIHState.i2cBuffer[3] & 0xFC) >> 2);
-		        receivedSensorData = (165.0 * receivedSensorData/ (16384.0 - 2.0)) - 40.0;
+		/*
+		 *Take average of 5 readings of the distance sensor
+		 */
+	receivedSensorData = 0;		
+        for(int i=0; i<5; i++)
+            {
+            OSA_TimeDelay(100);
+            receivedSensorData = DistanceSensor(temp) + receivedSensorData;
+             }
+	receivedSensorData = 7.63 + (receivedSensorData /(1.53*5)); /*Adding in the calibration curve results */
 
-                        uint8_t temp = receivedSensorData;
-                        SEGGER_RTT_printf(0, "Temp, %d",temp);
-                         uint8_t len = 2;
-                        char* word = "oC";
-                        int number = temp;
-                        printtoscreen(word,len,number);
-
-
-
-                                for(int i=0; i<5; i++)
-                                {
-                        OSA_TimeDelay(100);
-                        receivedSensorData = DistanceSensor(temp);
-                        SEGGER_RTT_printf(0, "Distance, %d",receivedSensorData);
-                                }
-                        len = 2;
-                        word = "cm";
-                        number = receivedSensorData;
-                        SEGGER_RTT_printf(0, "Number, %d",number);
-                        printtoscreen(word,len,number);
-
-
-                        if (receivedSensorData < 100)
-                        {
-
-                           for (int i = 0; i < 100; i++)
-        {
-                GPIO_DRV_SetPinOutput(kWarpPinBuzzer);
-                GPIO_DRV_SetPinOutput(kWarpPinLED);
-                OSA_TimeDelay(10);
-                GPIO_DRV_ClearPinOutput(kWarpPinBuzzer);
-                GPIO_DRV_ClearPinOutput(kWarpPinLED);
-                OSA_TimeDelay(10);
-        }
+		/*
+		 *Print the distance to the OLED screen and the warp display
+		 */	
+    word = "cm";
+	reset_cursor();
+	clearscreen();
+		/* 
+	 * For each of the digits within the distance (max distance is 400cm)
+	 * convert into ascii code and print to the screen
+	 * The print the units to the screen
+	 */
+	int number[3];
+	number[0] = receivedSensorData/100 + 48; /*Numbers start from 48 in ascii code */
+    	number[1] = (receivedSensorData%100)/10 + 48;
+   	number[2] = (receivedSensorData%100)%10 + 48;
+	for( i=0; i<3; i++) {
+		x = charactertoscreen(number[i],x);
+    	}
+	for( i=0; i<2; i++) {
+		char currentcharacter = *(word+i); /* Pointer for each character in the word */
+		x = charactertoscreen((int)currentcharacter,x);
+		}
+        SEGGER_RTT_printf(0, "Distance, %dcm ",receivedSensorData);
+       
 
 
-                }
-		GPIO_DRV_SetPinOutput(kWarpPinFRDMKL03LED_Green);
+		/*
+		 * Alert mechanism, if social distancing (200) is breached then set alert pin as
+		 * an output pin and switch on and off to create a flashing LED and/or 
+		 * pulsing buzzer sound
+		 */
+        if (receivedSensorData < 200)
+            {
+
+            for (int i = 0; i < 75; i++)
+        		{
+                GPIO_DRV_SetPinOutput(kWarpPinAlert);
+                OSA_TimeDelay(15);
+                GPIO_DRV_ClearPinOutput(kWarpPinAlert);
+                OSA_TimeDelay(15);
+        		}
+
+
+            }
 }
 
 
+/*
+ * Function to determine the distance of a person from the user.
+ */
+
+
 int
-DistanceSensor(void)
+DistanceSensor(int temp)
 {
+	/*
+	 * Initialisation of various constants used within the function. 
+	 */
     float cm = 0;
     int duration = 0;
     float  absolutetemp, speedofsound;
     int humidity = 0;
-    int temp = 19;
     int maxduration = 23200;
     int receivedSensorData;
+
+	/*
+	 * Set PTB6 as a GPIO pin and assign to ultrasound distance sensor. 
+	 */
+
     enum
     {
         kWarpPinUltrasound      = GPIO_MAKE_PIN(HW_GPIOB, 6),
-};
+	};
 
 
+	/*
+	 * The sensor will emit a pulse when it received an input that lasts 2 microseconds or more. 
+	 * Set the pin as an output, drive low for 2 microseconds and 
+	 * then high for 5 microseconds to get a good pulse. 
+	 */
 
-
-  // The PING))) is triggered by a HIGH pulse of 2 or more microseconds.
-  // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
-  // Also need to configure as output
     GPIO_DRV_SetPinDir(kWarpPinUltrasound, kGpioDigitalOutput);
     GPIO_DRV_ClearPinOutput(kWarpPinUltrasound);
     OSA_TimeDelay(2);
     GPIO_DRV_SetPinOutput(kWarpPinUltrasound);
     OSA_TimeDelay(5);
     GPIO_DRV_ClearPinOutput(kWarpPinUltrasound);
-    SEGGER_RTT_printf(0,"Pulse Sent, %d", temp);
+    SEGGER_RTT_printf(0,"Temperature , %doC ", temp);
 
- // The same pin is used to read the signal from the PING))): a HIGH pulse
-  // whose duration is the time (in microseconds) from the sending of the ping
-  // to the reception of its echo off of an object.
+
+	/*
+	 * Set the same pin as an input. 
+	 * Sensor returns a high pulse whose width is equal to time for signal to reach person, be reflected and return. 
+	 * The sensor range is 4m, max distance back and forth is 8m, longest time is 23200 microseconds.
+	 * Keep reading the input pin to see if it is still high. 
+	 * Stop the for loop when the input pin is no longer high. 
+	 * Output the time that the input pin was high for. 
+	 */
+
    GPIO_DRV_SetPinDir(kWarpPinUltrasound, kGpioDigitalInput);
    for (int i = 0; i < maxduration; i++)
 	{
@@ -1172,382 +1181,53 @@ DistanceSensor(void)
         }
         else{
             i =  maxduration;
-	    SEGGER_RTT_printf(0, "time out, %d",i);
-
         }
 
     }
-SEGGER_RTT_printf(0, "Duration, %d",duration);
 
-  // convert the time into a distance
-   // The speed of sound is 340 m/s or 29 microseconds per centimeter.
-  // The ping travels out and back, so to find the distance of the object we
-  // take half of the distance travelled.
 
-  /* sound speed depends on type of medium and temp of medium, conversion between m/s and microseconds per centimeter is 11.58 */
+  /* 
+   * Convert time and temperature into a distance
+   * Temperature used to determine speed of sound using:
+   * Speed = square root (ratio of specific heats (1.4) * gas constant (286) * T (absolute temp))
+   * Need to half time as sensor pulse width is for distance there and back to the person. 
+   * Also need to convert from m/s into cm per microsecond (11.58 conversion factor)
+   */
 
   absolutetemp = 273 + temp;
   int variablex;
   float variablexbefore;
   variablexbefore = 1.4*286*absolutetemp;
   variablex = (int)variablexbefore;
-  float squareroot = findSQRT(variablex);
+  float squareroot = findSquareRoot(variablex);
   squareroot = squareroot / 11.58;
   int intspeedofsound = (int)squareroot;
-  SEGGER_RTT_printf(0, "SpeedOfSound, %d",(int)squareroot);
   cm = 0.5 * duration * 40 / intspeedofsound ;
   return cm;
 
  
 }
 
-int findSQRT(int number)
+/*
+ * Function to determine the square root of a number.
+ * Based on an algorithm found at https://www.tutorialspoint.com/learn_c_by_examples/square_root_program_in_c.htm
+ * It find the integer part first, essentially working from 1 upwards and finding the square and seeing whether it
+ * is bigger than the given number.
+ * It then finds the decimal part. It starts by subtracting one from the integer and working its way up in 0.1 increments.
+ */
+
+
+int findSquareRoot(int number)
 {
-   double i, precision = 0.1;
+   double i;
 
-   for(i = 1; i*i <=number; ++i);           //Integer part
+   for(i = 1; i*i <=number; ++i);           
 
-   for(--i; i*i < number; i += precision);  //Fractional part
+	double decimal = 0.1;
+
+   for(--i; i*i < number; i += decimal); 
 
    return i;
-}
-
-void
-writeToTempSensorIn(uint8_t deviceRegister)
-{
-	/*
-	 *	writing the configuration
-	 */
-
-	
-	i2c_status_t	status; 
-
-	i2c_device_t slave =
-	{
-		.address = deviceRegister,
-		.baudRate_kbps = gWarpI2cBaudRateKbps
-	};
-
-
-	status = I2C_DRV_MasterSendDataBlocking(
-				0,
-				&slave,
-				NULL,
-				0,
-				NULL,
-				0,
-				5);
-	if(status != kStatus_I2C_Success)
-	{
-		SEGGER_RTT_printf(0, "\r\n\tI2C write failed, error %d.\n\n", status);
-	}
-}
-
-int 
-readFromTempSensorIn(uint8_t deviceRegister, int numberOfBytes)
-{
-        static int      tempValues;
-        i2c_status_t	status;
-        uint8_t        cmdBuf[4] = {0,0,0,0};
-
-        i2c_device_t slave =
-        {
-                .address = deviceRegister,
-                .baudRate_kbps = gWarpI2cBaudRateKbps
-        };
-
-
-
-        i2c_status_t    returnValue; 
-
-        returnValue = I2C_DRV_MasterReceiveDataBlocking(
-                                0 ,
-                                &slave,
-                                NULL,
-                                0,
-                                (uint8_t *)cmdBuf,
-                                numberOfBytes,
-                                5);
-
-        if(returnValue != kStatus_I2C_Success)
-        {
-                SEGGER_RTT_printf(0, "\r\n\tI2C write failed, error %d.\n\n", status);
-	}
-
-        tempValues = (cmdBuf[2] << 6) + ((cmdBuf[3] & 0xFC) >> 2);
-        tempValues = (165.0 * tempValues / (16384.0 - 2.0)) - 40.0;
-
-        return tempValues;
-}
-
-void
-printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelayBetweenEachRun, int i2cPullupValue)
-{
-	/*
-	 *	A 32-bit counter gives us > 2 years of before it wraps, even if sampling at 60fps
-	 */
-	uint32_t	readingCount = 0;
-	uint32_t	numberOfConfigErrors = 0;
-	
-	#ifdef WARP_BUILD_ENABLE_DEVMMA8451Q
-	numberOfConfigErrors += configureSensorMMA8451Q(0x00,/* Payload: Disable FIFO */
-					0x01,/* Normal read 8bit, 800Hz, normal, active mode */
-					i2cPullupValue
-					);
-	#endif
-
-
-
-	if (printHeadersAndCalibration)
-	{
-		SEGGER_RTT_WriteString(0, "Measurement number, RTC->TSR, RTC->TPR,");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-
-		#ifdef WARP_BUILD_ENABLE_DEVMMA8451Q
-		SEGGER_RTT_WriteString(0, " MMA8451 x, MMA8451 y, MMA8451 z,");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		#endif
-		SEGGER_RTT_WriteString(0, " RTC->TSR, RTC->TPR, # Config Errors");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\n\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-	}
-
-
-	while(1)
-	{
-		#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-		SEGGER_RTT_printf(0, "%u, %d, %d,", readingCount, RTC->TSR, RTC->TPR);
-		#endif
-		#ifdef WARP_BUILD_ENABLE_DEVMMA8451Q
-		printSensorDataMMA8451Q(hexModeFlag);
-		#endif
-
-
-		#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-		SEGGER_RTT_printf(0, " %d, %d, %d\n", RTC->TSR, RTC->TPR, numberOfConfigErrors);
-		#endif
-
-		if (menuDelayBetweenEachRun > 0)
-		{
-			OSA_TimeDelay(menuDelayBetweenEachRun);
-		}
-
-		readingCount++;
-	}
-}
-
-
-void
-loopForSensor(	const char *  tagString,
-		WarpStatus  (* readSensorRegisterFunction)(uint8_t deviceRegister, int numberOfBytes),
-		volatile WarpI2CDeviceState *  i2cDeviceState,
-		volatile WarpSPIDeviceState *  spiDeviceState,
-		uint8_t  baseAddress,
-		uint8_t  minAddress,
-		uint8_t  maxAddress,
-		int  repetitionsPerAddress,
-		int  chunkReadsPerAddress,
-		int  spinDelay,
-		bool  autoIncrement,
-		uint16_t  sssupplyMillivolts,
-		uint8_t  referenceByte,
-		uint16_t adaptiveSssupplyMaxMillivolts,
-		bool  chatty
-		)
-{
-	WarpStatus		status;
-	uint8_t			address;
-	if((minAddress < baseAddress) || (baseAddress <= maxAddress))
-	{
-		 address = baseAddress;
-	}
-	else
-	{
-		address = minAddress;
-	}
-	int			readCount = repetitionsPerAddress + 1;
-	int			nSuccesses = 0;
-	int			nFailures = 0;
-	int			nCorrects = 0;
-	int			nBadCommands = 0;
-	uint16_t		actualSssupplyMillivolts = sssupplyMillivolts;
-
-
-	if (	(!spiDeviceState && !i2cDeviceState) ||
-		(spiDeviceState && i2cDeviceState) )
-	{
-#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-		SEGGER_RTT_printf(0, RTT_CTRL_RESET RTT_CTRL_BG_BRIGHT_YELLOW RTT_CTRL_TEXT_BRIGHT_WHITE kWarpConstantStringErrorSanity RTT_CTRL_RESET "\n");
-#endif
-	}
-
-	enableSssupply(actualSssupplyMillivolts);
-	SEGGER_RTT_WriteString(0, tagString);
-
-	/*
-	 *	Keep on repeating until we are above the maxAddress, or just once if not autoIncrement-ing
-	 *	This is checked for at the tail end of the loop.
-	 */
-	while (true)
-	{
-		for (int i = 0; i < readCount; i++) for (int j = 0; j < chunkReadsPerAddress; j++)
-		{
-			status = readSensorRegisterFunction(address+j, 1 /* numberOfBytes */);
-			if (status == kWarpStatusOK)
-			{
-				nSuccesses++;
-				if (actualSssupplyMillivolts > sssupplyMillivolts)
-				{
-					actualSssupplyMillivolts -= 100;
-					enableSssupply(actualSssupplyMillivolts);
-				}
-
-				if (spiDeviceState)
-				{
-					if (referenceByte == spiDeviceState->spiSinkBuffer[2])
-					{
-						nCorrects++;
-					}
-
-					if (chatty)
-					{
-#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-						SEGGER_RTT_printf(0, "\r\t0x%02x --> [0x%02x 0x%02x 0x%02x]\n",
-							address+j,
-							spiDeviceState->spiSinkBuffer[0],
-							spiDeviceState->spiSinkBuffer[1],
-							spiDeviceState->spiSinkBuffer[2]);
-#endif
-					}
-				}
-				else
-				{
-					if (referenceByte == i2cDeviceState->i2cBuffer[0])
-					{
-						nCorrects++;
-					}
-
-					if (chatty)
-					{
-#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-						SEGGER_RTT_printf(0, "\r\t0x%02x --> 0x%02x\n",
-							address+j,
-							i2cDeviceState->i2cBuffer[0]);
-#endif
-					}
-				}
-			}
-			else if (status == kWarpStatusDeviceCommunicationFailed)
-			{
-#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-				SEGGER_RTT_printf(0, "\r\t0x%02x --> ----\n",
-					address+j);
-#endif
-
-				nFailures++;
-				if (actualSssupplyMillivolts < adaptiveSssupplyMaxMillivolts)
-				{
-					actualSssupplyMillivolts += 100;
-					enableSssupply(actualSssupplyMillivolts);
-				}
-			}
-			else if (status == kWarpStatusBadDeviceCommand)
-			{
-				nBadCommands++;
-			}
-
-			if (spinDelay > 0)
-			{
-				OSA_TimeDelay(spinDelay);
-			}
-		}
-
-		if (autoIncrement)
-		{
-			address++;
-		}
-
-		if (address > maxAddress || !autoIncrement)
-		{
-			/*
-			 *	We either iterated over all possible addresses, or were asked to do only
-			 *	one address anyway (i.e. don't increment), so we're done.
-			 */
-			break;
-		}
-	}
-
-	/*
-	 *	We intersperse RTT_printfs with forced delays to allow us to use small
-	 *	print buffers even in RUN mode.
-	 */
-#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-	SEGGER_RTT_printf(0, "\r\n\t%d/%d success rate.\n", nSuccesses, (nSuccesses + nFailures));
-	OSA_TimeDelay(50);
-	SEGGER_RTT_printf(0, "\r\t%d/%d successes matched ref. value of 0x%02x.\n", nCorrects, nSuccesses, referenceByte);
-	OSA_TimeDelay(50);
-	SEGGER_RTT_printf(0, "\r\t%d bad commands.\n\n", nBadCommands);
-	OSA_TimeDelay(50);
-#endif
-
-
-	return;
-}
-
-
-
-void
-repeatRegisterReadForDeviceAndAddress(WarpSensorDevice warpSensorDevice, uint8_t baseAddress, uint8_t pullupValue, bool autoIncrement, int chunkReadsPerAddress, bool chatty, int spinDelay, int repetitionsPerAddress, uint16_t sssupplyMillivolts, uint16_t adaptiveSssupplyMaxMillivolts, uint8_t referenceByte)
-{
-	if (warpSensorDevice != kWarpSensorADXL362)
-	{
-		enableI2Cpins(pullupValue);
-	}
-
-	switch (warpSensorDevice)
-	{
-
-		case kWarpSensorMMA8451Q:
-		{
-			/*
-			 *	MMA8451Q: VDD 1.95--3.6
-			 */
-#ifdef WARP_BUILD_ENABLE_DEVMMA8451Q
-			loopForSensor(	"\r\nMMA8451Q:\n\r",		/*	tagString			*/
-					&readSensorRegisterMMA8451Q,	/*	readSensorRegisterFunction	*/
-					&deviceMMA8451QState,		/*	i2cDeviceState			*/
-					NULL,				/*	spiDeviceState			*/
-					baseAddress,			/*	baseAddress			*/
-					0x00,				/*	minAddress			*/
-					0x31,				/*	maxAddress			*/
-					repetitionsPerAddress,		/*	repetitionsPerAddress		*/
-					chunkReadsPerAddress,		/*	chunkReadsPerAddress		*/
-					spinDelay,			/*	spinDelay			*/
-					autoIncrement,			/*	autoIncrement			*/
-					sssupplyMillivolts,		/*	sssupplyMillivolts		*/
-					referenceByte,			/*	referenceByte			*/
-					adaptiveSssupplyMaxMillivolts,	/*	adaptiveSssupplyMaxMillivolts	*/
-					chatty				/*	chatty				*/
-					);
-			#else
-			SEGGER_RTT_WriteString(0, "\r\n\tMMA8451Q Read Aborted. Device Disabled :(");
-#endif
-			break;
-		}
-
-		default:
-		{
-#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-			SEGGER_RTT_printf(0, "\r\tInvalid warpSensorDevice [%d] passed to repeatRegisterReadForDeviceAndAddress.\n", warpSensorDevice);
-#endif
-		}
-	}
-
-	if (warpSensorDevice != kWarpSensorADXL362)
-	{
-		disableI2Cpins();
-	}
 }
 
 
