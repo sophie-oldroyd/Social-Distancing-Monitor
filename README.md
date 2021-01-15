@@ -45,7 +45,7 @@ The mapping table for the switch is given below. The input to the switch is PTA5
 
 FRDM-KL03Z I/0 Port Name | FRDM-KL03Z I/0 Header Pin | Switch Port Name 	      | Wire Colour
 -------------------------|---------------------------|--------------------------------|------------
-PTA5 (via LED)		 | J2, 3		     | + (via a resistor)	      | Black
+PTA5 (via LED)		 | J2, 3		     | + 	      | Black
 
 The mapping table for the temperature sensor pins is given below.
 
