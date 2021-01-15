@@ -75,8 +75,8 @@ Implementation of the SEGGER Real-Time Terminal interface formatted I/O routines
 Driver for HIH6121-021-001 temperature sensor. Communication is completed via the I2C Interface.  
 
 ##### `devSSD1331.*`
-Driver for the SSD1331 OLED display that allows characters to be created. 
-Several function included are based on the driver found at `https://os.mbed.com/users/star297/code/ssd1331/file/4385fd242db0/ssd1331.cpp/` written by `Paul Staron`. 
+Driver for the SSD1331 OLED display that allows characters to be displayed. 
+Several functions included are based on the driver found at `https://os.mbed.com/users/star297/code/ssd1331/file/4385fd242db0/ssd1331.cpp/` written by `Paul Staron`. 
 Contains function `charactertoscreen()` which prints a character (either letter or number) to the OLED display. 
 Contains function `clearscreen()` to clear the  OLED display. 
 
@@ -91,7 +91,7 @@ Initialization assembler.
 
 ##### `warp-kl03-ksdk1.1-boot.c`
 Contains initialisation that starts the device and initialises the sensors.
-Contains function `runDevice()` that calls upon different sensors to obtain and display the temperature and distance. Contains algorithm to calculate distance based on the temperature from the temperature sensor and the time from the ultrasound sensor. It determines if social distancing has been breached and raises an alert (using LED and buzzer) if it has been. 
+Contains function `runDevice()` that calls upon different sensors to obtain and display the temperature and distance. Contains an algorithm to calculate distance based on the temperature from the temperature sensor and the time from the ultrasound sensor. It determines if social distancing has been breached and raises an alert (using LED and buzzer) if it has been. 
 Contains function `DistanceSensor()` that is the functionalisation for the ultrasound distance sensor, which is not included as a separate driver because the sensor is analogue. The sensor outputs a pulse that has a length equal to the time between the burst being sent and the reflection being received.
 Contains function `findSquareRoot()` that is used in the data processing algorithm as the speed of sound is proportional to the square root of the temperature. Algorithm based on that outlined at `https://www.tutorialspoint.com/learn_c_by_examples/square_root_program_in_c.htm`.
 
